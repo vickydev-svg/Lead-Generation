@@ -1,0 +1,4 @@
+# Local IDE & Cache
+.vite/
+.gemini/
+.DS_Store
