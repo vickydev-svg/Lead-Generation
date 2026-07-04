@@ -17,7 +17,8 @@ const DashboardView = ({
   latestExports, 
   user,
   setActiveTab,
-  setDirectSearchQuery 
+  setDirectSearchQuery,
+  onViewSearch
 }) => {
   
   const handleTryAISuggestion = () => {
@@ -192,7 +193,12 @@ const DashboardView = ({
               <tbody>
                 {recentSearches && recentSearches.length > 0 ? (
                   recentSearches.slice(0, 4).map((s, idx) => (
-                    <tr key={idx}>
+                    <tr 
+                      key={idx}
+                      onClick={() => onViewSearch && onViewSearch(s.id, s.keyword, s.location)}
+                      style={{ cursor: 'pointer' }}
+                      title="Click to view extracted leads"
+                    >
                       <td style={{ fontWeight: 600 }}>
                         {s.keyword} <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>in {s.location}</span>
                       </td>

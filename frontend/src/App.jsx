@@ -416,6 +416,19 @@ function App() {
     setActiveTab('search-leads');
   };
 
+  const handleViewSearchLeads = async (searchId, keyword, location) => {
+    try {
+      setActiveSearch({ id: searchId, keyword, location });
+      // Set temporary empty array so results page shows a loading style or skeleton
+      setLeads([]);
+      setActiveTab('search-results');
+      const dbLeads = await apiClient.getSearchLeads(searchId);
+      setLeads(dbLeads || []);
+    } catch (err) {
+      console.error("Failed to fetch leads for searchId " + searchId, err);
+    }
+  };
+
   const handleSaveSearchTemplate = (template) => {
     console.log('Saved search template:', template);
   };
@@ -636,6 +649,7 @@ function App() {
                   user={user}
                   setActiveTab={setActiveTab}
                   setDirectSearchQuery={setDirectSearchQuery}
+                  onViewSearch={handleViewSearchLeads}
                 />
               )}
 
@@ -724,6 +738,7 @@ function App() {
                   onRepeatSearch={handleRepeatSearch}
                   onDeleteHistory={(id) => setHistory(history.filter(h => h.id !== id))}
                   onSaveSearchTemplate={handleSaveSearchTemplate}
+                  onViewSearch={handleViewSearchLeads}
                 />
               )}
 

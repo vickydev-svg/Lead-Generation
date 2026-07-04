@@ -1,7 +1,7 @@
 import React from 'react';
 import { History, Play, Bookmark, Trash2 } from 'lucide-react';
 
-const SearchHistoryView = ({ history, onRepeatSearch, onDeleteHistory, onSaveSearchTemplate }) => {
+const SearchHistoryView = ({ history, onRepeatSearch, onDeleteHistory, onSaveSearchTemplate, onViewSearch }) => {
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
@@ -36,7 +36,12 @@ const SearchHistoryView = ({ history, onRepeatSearch, onDeleteHistory, onSaveSea
               </tr>
             ) : (
               history.map((item) => (
-                <tr key={item.id}>
+                <tr 
+                  key={item.id}
+                  onClick={() => onViewSearch && onViewSearch(item.id, item.keyword, item.location)}
+                  style={{ cursor: 'pointer' }}
+                  title="Click to view extracted leads"
+                >
                   <td style={{ fontWeight: 600 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <History size={16} style={{ color: 'var(--text-muted)' }} />
@@ -57,7 +62,7 @@ const SearchHistoryView = ({ history, onRepeatSearch, onDeleteHistory, onSaveSea
                       
                       {/* Repeat Search */}
                       <button
-                        onClick={() => onRepeatSearch(item)}
+                        onClick={(e) => { e.stopPropagation(); onRepeatSearch(item); }}
                         className="btn btn-primary btn-xs"
                         style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
                         title="Re-run search query"
@@ -68,7 +73,8 @@ const SearchHistoryView = ({ history, onRepeatSearch, onDeleteHistory, onSaveSea
 
                       {/* Save Template */}
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           onSaveSearchTemplate({ keyword: item.keyword, location: item.location, radius: 25, maxResults: item.leadsFound });
                           alert('Added search parameters to saved configurations.');
                         }}
@@ -81,7 +87,7 @@ const SearchHistoryView = ({ history, onRepeatSearch, onDeleteHistory, onSaveSea
 
                       {/* Delete */}
                       <button
-                        onClick={() => onDeleteHistory(item.id)}
+                        onClick={(e) => { e.stopPropagation(); onDeleteHistory(item.id); }}
                         className="btn btn-danger btn-xs"
                         style={{ padding: '6px' }}
                         title="Remove history item"
