@@ -20,6 +20,9 @@ public class Business {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "search_id")
+    private UUID searchId;
+
     @Column(nullable = false)
     private String name;
 

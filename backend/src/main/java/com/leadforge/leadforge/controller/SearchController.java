@@ -66,8 +66,7 @@ public class SearchController {
         }
         
         Search search = searchOpt.get();
-        // Return businesses matching category, or just all businesses for simplicity
-        List<Business> all = businessRepository.findAll();
+        List<Business> all = businessRepository.findBySearchId(searchId);
         List<Map<String, Object>> response = new ArrayList<>();
         
         for (Business b : all) {

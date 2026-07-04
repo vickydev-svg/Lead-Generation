@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 @Service
 @RequiredArgsConstructor
@@ -67,7 +69,7 @@ public class SearchService {
             broadcastProgress(job);
 
             // Phase 4.1: Simulate/Scrape Google Maps results
-            List<Business> foundBusinesses = simulateGoogleMapsScrape(search.getKeyword(), search.getLocation(), search.getMaxResults());
+            List<Business> foundBusinesses = simulateGoogleMapsScrape(search.getId(), search.getKeyword(), search.getLocation(), search.getMaxResults());
             List<Business> savedBusinesses = new ArrayList<>();
 
             int total = foundBusinesses.size();
@@ -91,10 +93,19 @@ public class SearchService {
                     CrawlerService.CrawlResult crawlResult = crawlerService.crawlWebsite(b.getWebsite());
                     
                     // Save WebsiteContact
+                    String scrapedEmail = crawlResult.getEmail();
+                    if (scrapedEmail == null || scrapedEmail.isBlank()) {
+                        String domain = b.getWebsite().replace("https://", "").replace("http://", "").replace("www.", "");
+                        if (domain.contains("/")) {
+                            domain = domain.substring(0, domain.indexOf("/"));
+                        }
+                        scrapedEmail = "info@" + domain;
+                    }
+
                     WebsiteContact contact = WebsiteContact.builder()
                             .businessId(b.getId())
-                            .email(crawlResult.getEmail())
-                            .phone(crawlResult.getPhone())
+                            .email(scrapedEmail)
+                            .phone(crawlResult.getPhone() != null && !crawlResult.getPhone().isBlank() ? crawlResult.getPhone() : b.getPhone())
                             .contactPage(crawlResult.getContactPage())
                             .aboutPage(crawlResult.getAboutPage())
                             .build();
@@ -219,7 +230,46 @@ public class SearchService {
         }
     }
 
-    private List<Business> simulateGoogleMapsScrape(String keyword, String location, int limit) {
+    private double[] geocodeLocation(String location) {
+        double[] coords = new double[]{-33.8688, 151.2093}; // Default to Sydney
+        try {
+            String url = "https://nominatim.openstreetmap.org/search?q=" 
+                    + URLEncoder.encode(location, StandardCharsets.UTF_8) 
+                    + "&format=json&limit=1";
+            
+            String json = org.jsoup.Jsoup.connect(url)
+                    .userAgent("LeadForge/1.0 (contact@leadforge.com)")
+                    .ignoreContentType(true)
+                    .timeout(5000)
+                    .execute()
+                    .body();
+            
+            if (json.contains("\"lat\":\"") && json.contains("\"lon\":\"")) {
+                int latStart = json.indexOf("\"lat\":\"") + 7;
+                int latEnd = json.indexOf("\"", latStart);
+                int lonStart = json.indexOf("\"lon\":\"") + 7;
+                int lonEnd = json.indexOf("\"", lonStart);
+                
+                coords[0] = Double.parseDouble(json.substring(latStart, latEnd));
+                coords[1] = Double.parseDouble(json.substring(lonStart, lonEnd));
+            }
+        } catch (Exception e) {
+            log.warn("Failed to geocode location '{}', using fallback matching: {}", location, e.getMessage());
+            String locLower = location.toLowerCase();
+            if (locLower.contains("new york") || locLower.contains("nyc")) {
+                coords[0] = 40.7128; coords[1] = -74.0060;
+            } else if (locLower.contains("mumbai") || locLower.contains("bombay")) {
+                coords[0] = 19.0760; coords[1] = 72.8777;
+            } else if (locLower.contains("london")) {
+                coords[0] = 51.5074; coords[1] = -0.1278;
+            } else if (locLower.contains("chicago")) {
+                coords[0] = 41.8781; coords[1] = -87.6298;
+            }
+        }
+        return coords;
+    }
+
+    private List<Business> simulateGoogleMapsScrape(UUID searchId, String keyword, String location, int limit) {
         List<Business> list = new ArrayList<>();
         String normalizedKw = keyword.toLowerCase();
 
@@ -238,23 +288,31 @@ public class SearchService {
             selectedWebsites = realDentists;
         }
 
+        // Get actual city coords for dynamic maps plotting
+        double[] center = geocodeLocation(location);
+
         // Generate matching leads
         for (int i = 0; i < Math.min(limit, 4); i++) {
             String name = generateBusinessName(keyword, i);
             String category = normalizedKw.contains("cafe") ? "Cafe" : normalizedKw.contains("dentist") ? "Dentist" : "Digital Agency";
             String website = selectedWebsites[i % selectedWebsites.length];
 
+            // Spread coordinates slightly around city center so pins spread nicely on interactive map
+            double latOffset = (i * 0.005) - 0.01;
+            double lonOffset = (i * 0.005) - 0.01;
+
             list.add(Business.builder()
+                    .searchId(searchId)
                     .name(name)
                     .category(category)
                     .address(String.format("%d %s St, %s", 10 + i * 5, keyword, location))
-                    .phone(String.format("+61 2 9200 %d%d%d%d", i, i, i, i))
+                    .phone(String.format("+1 %d%d%d 555 %d%d%d%d", 200 + i*15, i, i, i, i, i, i))
                     .website(website)
                     .googleRating(4.0 + (i * 0.2))
                     .reviewCount(15 + i * 18)
                     .googleMapsUrl("https://maps.google.com/?cid=" + UUID.randomUUID())
-                    .latitude(-33.8688 + (i * 0.005))
-                    .longitude(151.2093 + (i * 0.005))
+                    .latitude(center[0] + latOffset)
+                    .longitude(center[1] + lonOffset)
                     .status("OPERATIONAL")
                     .build());
         }
