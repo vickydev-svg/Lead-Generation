@@ -24,9 +24,9 @@ public class OpenAiService {
     @Value("${app.openai.key:${OPENAI_API_KEY:}}")
     private String apiKey;
 
-    public OpenAiService(ObjectMapper objectMapper) {
+    public OpenAiService() {
         this.restClient = RestClient.builder().build();
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
     }
 
     @Data

@@ -29,7 +29,7 @@ public class SearchService {
     private final CrawlerService crawlerService;
     private final OpenAiService openAiService;
     private final SearchProgressHandler progressHandler;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
     public SearchJob triggerSearch(UUID userId, String keyword, String location, Integer maxResults) {
