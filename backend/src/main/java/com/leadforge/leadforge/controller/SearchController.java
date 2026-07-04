@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.leadforge.leadforge.repository.*;
 import com.leadforge.leadforge.entity.*;
+import org.springframework.web.bind.annotation.*;
 import java.util.*;
 
 @RestController
@@ -75,24 +76,24 @@ public class SearchController {
             Optional<WebsiteAudit> audit = websiteAuditRepository.findByBusinessId(b.getId());
             Optional<AiAnalysis> ai = aiAnalysisRepository.findByBusinessId(b.getId());
             
-            response.add(Map.of(
-                "id", b.getId(),
-                "name", b.getName(),
-                "category", b.getCategory() != null ? b.getCategory() : "",
-                "address", b.getAddress() != null ? b.getAddress() : "",
-                "phone", b.getPhone() != null ? b.getPhone() : "",
-                "website", b.getWebsite() != null ? b.getWebsite() : "",
-                "rating", b.getGoogleRating() != null ? b.getGoogleRating() : 0.0,
-                "reviews", b.getReviewCount() != null ? b.getReviewCount() : 0,
-                "email", contact.map(WebsiteContact::getEmail).orElse(""),
-                "facebook", social.map(WebsiteSocial::getFacebook).orElse(""),
-                "instagram", social.map(WebsiteSocial::getInstagram).orElse(""),
-                "linkedin", social.map(WebsiteSocial::getLinkedin).orElse(""),
-                "aiScore", audit.map(WebsiteAudit::getWebsiteScore).orElse(0),
-                "summary", ai.map(AiAnalysis::getSummary).orElse(""),
-                "opportunity", ai.map(AiAnalysis::getOpportunity).orElse(""),
-                "pitch", ai.map(AiAnalysis::getPitch).orElse("")
-            ));
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", b.getId());
+            map.put("name", b.getName());
+            map.put("category", b.getCategory() != null ? b.getCategory() : "");
+            map.put("address", b.getAddress() != null ? b.getAddress() : "");
+            map.put("phone", b.getPhone() != null ? b.getPhone() : "");
+            map.put("website", b.getWebsite() != null ? b.getWebsite() : "");
+            map.put("rating", b.getGoogleRating() != null ? b.getGoogleRating() : 0.0);
+            map.put("reviews", b.getReviewCount() != null ? b.getReviewCount() : 0);
+            map.put("email", contact.map(WebsiteContact::getEmail).orElse(""));
+            map.put("facebook", social.map(WebsiteSocial::getFacebook).orElse(""));
+            map.put("instagram", social.map(WebsiteSocial::getInstagram).orElse(""));
+            map.put("linkedin", social.map(WebsiteSocial::getLinkedin).orElse(""));
+            map.put("aiScore", audit.map(WebsiteAudit::getWebsiteScore).orElse(0));
+            map.put("summary", ai.map(AiAnalysis::getSummary).orElse(""));
+            map.put("opportunity", ai.map(AiAnalysis::getOpportunity).orElse(""));
+            map.put("pitch", ai.map(AiAnalysis::getPitch).orElse(""));
+            response.add(map);
         }
         return ResponseEntity.ok(response);
     }
