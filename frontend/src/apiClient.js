@@ -125,6 +125,39 @@ export const apiClient = {
     return response.data;
   },
 
+  async getSearchLeads(searchId) {
+    const response = await api.get(`/api/searches/${searchId}/leads`);
+    return response.data;
+  },
+
+  async pollJobStatus(jobId, maxAttempts = 60, intervalMs = 3000) {
+    // Fallback polling when WebSocket connection is missed or job completes too fast
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const check = async () => {
+        try {
+          const jobs = await api.get('/api/searches/jobs');
+          const job = jobs.data?.find(j => j.id === jobId);
+          if (!job) { attempts++; }
+          else if (job.status === 'Completed' || job.status === 'Failed') {
+            resolve(job);
+            return;
+          } else {
+            attempts++;
+          }
+        } catch {
+          attempts++;
+        }
+        if (attempts < maxAttempts) {
+          setTimeout(check, intervalMs);
+        } else {
+          resolve(null); // Timed out
+        }
+      };
+      setTimeout(check, intervalMs);
+    });
+  },
+
   // Exports
   async getExports() {
     const response = await api.get('/api/exports');

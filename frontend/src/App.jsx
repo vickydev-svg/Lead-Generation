@@ -326,8 +326,21 @@ function App() {
     return activeProj ? activeProj.id : null;
   };
 
-  const handleLogin = (userInfo) => {
-    setUser(userInfo);
+  const handleLogin = async (userInfo) => {
+    // Fetch fresh profile to ensure name/credits are current
+    try {
+      const profile = await apiClient.getProfile();
+      if (profile) {
+        const merged = { ...userInfo, fullName: profile.fullName, company: profile.company, credits: profile.credits };
+        localStorage.setItem('user', JSON.stringify(merged));
+        setUser(merged);
+        setCredits(profile.credits);
+      } else {
+        setUser(userInfo);
+      }
+    } catch {
+      setUser(userInfo);
+    }
     setPage('app');
     setActiveTab('dashboard');
     loadUserData(userInfo.id);
@@ -368,15 +381,18 @@ function App() {
     if (!activeSearch) return;
 
     try {
+      // Give the backend a moment to finalize DB writes before fetching leads
+      await new Promise(res => setTimeout(res, 1500));
       const dbLeads = await apiClient.getSearchLeads(activeSearch.id);
-      if (dbLeads) {
+      if (dbLeads && dbLeads.length > 0) {
         setLeads(dbLeads);
       }
-      
+      // Refresh credits, history, and exports
       await loadUserData(user.id);
-      setActiveTab('search-results');
     } catch (err) {
       console.error('Search complete sync failed:', err);
+    } finally {
+      setActiveTab('search-results');
     }
   };
 
@@ -581,6 +597,7 @@ function App() {
               onLogout={handleLogout}
               setPage={setPage}
               setActiveTab={setActiveTab}
+              user={user}
             />
 
             {/* Sub-view Routing */}
@@ -688,7 +705,7 @@ function App() {
               )}
 
               {activeTab === 'profile' && (
-                <ProfileView />
+                <ProfileView user={user} onUserUpdated={(updated) => setUser(updated)} />
               )}
 
               {activeTab === 'settings' && (

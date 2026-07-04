@@ -1,7 +1,7 @@
 import React from 'react';
 import { Search, Bell, LogOut, Coins, CreditCard } from 'lucide-react';
 
-const Navbar = ({ activeTab, credits, onLogout, setPage, setActiveTab }) => {
+const Navbar = ({ activeTab, credits, onLogout, setPage, setActiveTab, user }) => {
   // Format tab ID to clean title
   const getTitle = () => {
     switch (activeTab) {
@@ -133,11 +133,19 @@ const Navbar = ({ activeTab, credits, onLogout, setPage, setActiveTab }) => {
             height: '32px',
             borderRadius: '50%',
             backgroundColor: 'var(--accent-color)',
-            backgroundImage: 'url("https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100")',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '0.75rem',
+            fontWeight: 700,
+            color: '#ffffff',
             border: '1px solid var(--border-color)'
-          }} />
+          }}>
+            {user?.fullName ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U'}
+          </div>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: '#ffffff', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {user?.fullName || 'Account'}
+          </span>
         </div>
 
         <span style={{ height: '20px', width: '1px', backgroundColor: 'var(--border-color)' }}></span>
