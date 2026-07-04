@@ -21,10 +21,15 @@ const SearchProgressView = ({ activeSearch, onSearchComplete, onCancelSearch }) 
   };
 
   useEffect(() => {
-    // 1. Ticking timer
+    // 1. Ticking timer always runs
     const timer = setInterval(() => {
       setElapsedSeconds(prev => prev + 1);
     }, 1000);
+
+    // Don't connect WS/poll until we have a real jobId from the backend
+    if (!activeSearch?.jobId) {
+      return () => clearInterval(timer);
+    }
 
     const cachedUser = JSON.parse(localStorage.getItem('user'));
     const userId = cachedUser?.id;
@@ -40,46 +45,42 @@ const SearchProgressView = ({ activeSearch, onSearchComplete, onCancelSearch }) 
     };
 
     const updateFromData = (data) => {
+      // Accept match by jobId or id field
       if (data.jobId !== activeSearch.jobId && data.id !== activeSearch.jobId) return;
-      setP1(data.progressBusinesses ?? data.progress_businesses ?? 0);
-      setP2(data.progressBusinesses ?? data.progress_businesses ?? 0);
-      setP3(data.progressWebsites ?? data.progress_websites ?? 0);
-      setP4(data.progressWebsites ?? data.progress_websites ?? 0);
-      setP5(data.progressWebsites ?? data.progress_websites ?? 0);
-      setP6(data.progressAnalysis ?? data.progress_analysis ?? 0);
+      setP1(data.progressBusinesses ?? 0);
+      setP2(data.progressBusinesses ?? 0);
+      setP3(data.progressWebsites ?? 0);
+      setP4(data.progressWebsites ?? 0);
+      setP5(data.progressWebsites ?? 0);
+      setP6(data.progressAnalysis ?? 0);
       if (data.status === 'Completed' || data.status === 'Failed') {
         handleCompletion();
       }
     };
 
-    // 2. Try WebSocket first
+    // 2. WebSocket (real-time updates)
     if (userId) {
       try {
         ws = new WebSocket(`ws://localhost:8080/ws/search?userId=${userId}`);
-        ws.onopen = () => console.log("WebSocket connected to live search progress");
+        ws.onopen = () => console.log("WebSocket connected");
         ws.onmessage = (event) => {
-          try { updateFromData(JSON.parse(event.data)); } catch (e) { console.error("WS parse error", e); }
+          try { updateFromData(JSON.parse(event.data)); } catch (e) { }
         };
-        ws.onerror = () => console.warn("WebSocket error - falling back to polling");
-        ws.onclose = () => console.log("WebSocket closed");
-      } catch (e) {
-        console.warn("WebSocket init failed", e);
-      }
+        ws.onerror = () => console.warn("WS error – using polling");
+      } catch (e) { }
     }
 
-    // 3. Polling fallback - runs in parallel with WebSocket (covers race conditions)
+    // 3. HTTP polling every 3s as fallback/supplement
     pollInterval = setInterval(async () => {
       if (completed) { clearInterval(pollInterval); return; }
       try {
-        const res = await fetch(`http://localhost:8080/api/searches/jobs`, {
+        const res = await fetch('http://localhost:8080/api/searches/jobs', {
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
         });
         const jobs = await res.json();
         const job = jobs.find(j => j.id === activeSearch.jobId);
         if (job) { updateFromData({ ...job, jobId: job.id }); }
-      } catch (e) {
-        console.warn("Polling failed", e);
-      }
+      } catch (e) { }
     }, 3000);
 
     return () => {
@@ -87,7 +88,7 @@ const SearchProgressView = ({ activeSearch, onSearchComplete, onCancelSearch }) 
       clearInterval(pollInterval);
       if (ws) ws.close();
     };
-  }, [activeSearch, onSearchComplete]);
+  }, [activeSearch?.jobId, onSearchComplete]);
 
   // Calculate live counts based on percentages
   const maxLeads = activeSearch.maxResults || 2500;

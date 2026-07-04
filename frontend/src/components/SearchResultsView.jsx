@@ -94,14 +94,37 @@ const SearchResultsView = ({
     return filteredLeads.slice(startIndex, startIndex + itemsPerPage);
   }, [filteredLeads, currentPage]);
 
-  const handleBulkExport = () => {
+  const [exportStatus, setExportStatus] = useState('');  // '' | 'exporting' | 'done' | 'error'
+  const [saveListName, setSaveListName] = useState('');
+  const [showSaveInput, setShowSaveInput] = useState(false);
+
+  const handleBulkExport = async () => {
     if (selectedIds.size === 0) {
       alert('Please select at least one lead to export.');
       return;
     }
-    onExportLeads(Array.from(selectedIds));
-    alert(`Successfully exported ${selectedIds.size} leads.`);
-    setSelectedIds(new Set());
+    setExportStatus('exporting');
+    try {
+      await onExportLeads(Array.from(selectedIds));
+      setExportStatus('done');
+      setSelectedIds(new Set());
+      setTimeout(() => setExportStatus(''), 3000);
+    } catch {
+      setExportStatus('error');
+      setTimeout(() => setExportStatus(''), 3000);
+    }
+  };
+
+  const handleExportAll = async () => {
+    setExportStatus('exporting');
+    try {
+      await onExportLeads(leads.map(l => l.id));
+      setExportStatus('done');
+      setTimeout(() => setExportStatus(''), 3000);
+    } catch {
+      setExportStatus('error');
+      setTimeout(() => setExportStatus(''), 3000);
+    }
   };
 
   const handleBulkDelete = () => {
@@ -117,12 +140,15 @@ const SearchResultsView = ({
       alert('Please select leads to add to a list.');
       return;
     }
-    const listName = prompt('Enter name of the list to add these leads to:', 'Target Dentists NY');
-    if (listName) {
-      onSaveList(listName, Array.from(selectedIds));
-      alert(`Added ${selectedIds.size} leads to list "${listName}".`);
-      setSelectedIds(new Set());
-    }
+    setShowSaveInput(true);
+  };
+
+  const confirmSaveList = () => {
+    const name = saveListName.trim() || `${activeSearch?.keyword || 'Search'} - ${activeSearch?.location || ''}`;
+    onSaveList(name, selectedIds.size > 0 ? Array.from(selectedIds) : leads.map(l => l.id));
+    setSaveListName('');
+    setShowSaveInput(false);
+    setSelectedIds(new Set());
   };
 
   // Check if all rows on this page are selected
@@ -131,6 +157,44 @@ const SearchResultsView = ({
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       
+      {/* Export status banner */}
+      {exportStatus && (
+        <div style={{
+          padding: '10px 16px',
+          borderRadius: 'var(--radius-md)',
+          fontSize: '0.85rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          backgroundColor: exportStatus === 'done' ? 'rgba(16,185,129,0.1)' : exportStatus === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(37,99,235,0.1)',
+          border: `1px solid ${exportStatus === 'done' ? 'rgba(16,185,129,0.3)' : exportStatus === 'error' ? 'rgba(239,68,68,0.3)' : 'rgba(37,99,235,0.3)'}`,
+          color: exportStatus === 'done' ? 'var(--success)' : exportStatus === 'error' ? 'var(--danger)' : 'var(--accent-hover)'
+        }}>
+          {exportStatus === 'exporting' && '⏳ Preparing CSV download...'}
+          {exportStatus === 'done' && '✅ CSV downloaded successfully!'}
+          {exportStatus === 'error' && '❌ Export failed — please try again.'}
+        </div>
+      )}
+
+      {/* Inline Save List input */}
+      {showSaveInput && (
+        <div className="card" style={{ padding: '16px', display: 'flex', gap: '10px', alignItems: 'center', backgroundColor: 'rgba(37,99,235,0.05)', border: '1px solid rgba(37,99,235,0.3)' }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', flexShrink: 0 }}>List name:</span>
+          <input
+            type="text"
+            className="input-field"
+            style={{ flex: 1 }}
+            placeholder={`${activeSearch?.keyword || 'Search'} - ${activeSearch?.location || ''}`}
+            value={saveListName}
+            onChange={e => setSaveListName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && confirmSaveList()}
+            autoFocus
+          />
+          <button onClick={confirmSaveList} className="btn btn-primary btn-sm">Save</button>
+          <button onClick={() => setShowSaveInput(false)} className="btn btn-secondary btn-sm">Cancel</button>
+        </div>
+      )}
+
       {/* Search Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -144,17 +208,14 @@ const SearchResultsView = ({
 
         {/* Global Toolbar buttons */}
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={() => {
-            const listName = prompt('Name this search list:', `${activeSearch.keyword || 'Search'} - ${activeSearch.location || 'New York'}`);
-            if (listName) onSaveList(listName, leads.map(l => l.id));
-          }} className="btn btn-secondary btn-sm">
+          <button onClick={() => { setSaveListName(''); setShowSaveInput(true); }} className="btn btn-secondary btn-sm">
             <Save size={14} />
-            <span>Save Search List</span>
+            <span>Save as List</span>
           </button>
           
-          <button onClick={() => onExportLeads(leads.map(l => l.id))} className="btn btn-primary btn-sm">
+          <button onClick={handleExportAll} disabled={exportStatus === 'exporting'} className="btn btn-primary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Download size={14} />
-            <span>Export All Leads</span>
+            <span>{exportStatus === 'exporting' ? 'Exporting...' : 'Export All CSV'}</span>
           </button>
         </div>
       </div>

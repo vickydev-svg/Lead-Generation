@@ -358,22 +358,32 @@ function App() {
   };
 
   const handleStartSearch = async (searchParams) => {
+    // Step 1: Switch to progress screen IMMEDIATELY so the user sees feedback
+    const tempId = crypto.randomUUID();
+    setActiveSearch({
+      ...searchParams,
+      id: tempId,
+      jobId: null  // null until backend responds
+    });
+    setActiveTab('search-progress');
+
+    // Step 2: Trigger the backend search in background
     try {
       const job = await apiClient.triggerSearch(
         searchParams.keyword,
         searchParams.location,
         searchParams.maxResults
       );
-      
-      setActiveSearch({
-        ...searchParams,
+      // Update with real IDs once backend responds
+      setActiveSearch(prev => ({
+        ...prev,
         id: job.searchId,
         jobId: job.id
-      });
-      setActiveTab('search-progress');
+      }));
     } catch (err) {
       console.error("Failed to start search:", err);
       alert("Failed to start search: " + (err.response?.data?.message || err.message));
+      setActiveTab('search-leads');
     }
   };
 
