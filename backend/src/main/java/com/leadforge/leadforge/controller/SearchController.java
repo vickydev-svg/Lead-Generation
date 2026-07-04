@@ -8,10 +8,9 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.leadforge.leadforge.repository.SearchJobRepository;
+import com.leadforge.leadforge.repository.SearchRepository;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/searches")
@@ -19,6 +18,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class SearchController {
 
     private final SearchService searchService;
+    private final SearchRepository searchRepository;
+    private final SearchJobRepository searchJobRepository;
 
     @PostMapping
     public ResponseEntity<?> triggerSearch(
@@ -36,5 +37,15 @@ public class SearchController {
         } catch (Exception ex) {
             return ResponseEntity.badRequest().body("Failed to trigger search: " + ex.getMessage());
         }
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<?> getSearchHistory(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(searchRepository.findByUserId(userDetails.getId()));
+    }
+
+    @GetMapping("/jobs")
+    public ResponseEntity<?> getSearchJobs(@AuthenticationPrincipal CustomUserDetails userDetails) {
+        return ResponseEntity.ok(searchJobRepository.findByUserId(userDetails.getId()));
     }
 }
