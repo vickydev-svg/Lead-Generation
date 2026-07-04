@@ -68,10 +68,10 @@ public class SearchService {
             job = searchJobRepository.save(job);
             broadcastProgress(job);
 
-            // Phase 4.1: Attempt to scrape real OpenStreetMap POI data, falling back to simulator if no results
+            // Phase 4.1: Attempt to scrape real OpenStreetMap POI data, throw error if none found
             List<Business> foundBusinesses = scrapeRealOpenStreetMapData(search.getId(), search.getKeyword(), search.getLocation(), search.getMaxResults() != null ? search.getMaxResults() : 10);
             if (foundBusinesses == null || foundBusinesses.isEmpty()) {
-                foundBusinesses = simulateGoogleMapsScrape(search.getId(), search.getKeyword(), search.getLocation(), search.getMaxResults() != null ? search.getMaxResults() : 10);
+                throw new RuntimeException("No real businesses found matching '" + search.getKeyword() + "' in '" + search.getLocation() + "'.");
             }
             List<Business> savedBusinesses = new ArrayList<>();
 
@@ -272,103 +272,6 @@ public class SearchService {
         return coords;
     }
 
-    private List<Business> simulateGoogleMapsScrape(UUID searchId, String keyword, String location, int limit) {
-        List<Business> list = new ArrayList<>();
-        String normalizedKw = keyword.toLowerCase();
-
-        // High quality set of real live web addresses/domains for crawling
-        String[] realAgencies = {"https://www.wpengine.com", "https://www.wix.com", "https://www.hubspot.com", "https://www.shopify.com"};
-        String[] realCafes = {"https://www.camposcoffee.com", "https://www.singleo.com.au"};
-        String[] realDentists = {"https://www.identistry.com.au", "https://www.sydneydentists.com.au"};
-        String[] realRestaurants = {"https://www.mcdonalds.com", "https://www.dominos.co.in", "https://www.subway.com", "https://www.starbucks.in"};
-        String[] fallbackSites = {"https://www.wikipedia.org", "https://news.ycombinator.com", "https://github.com", "https://about.google"};
-
-        String[] selectedWebsites = fallbackSites;
-        if (normalizedKw.contains("design") || normalizedKw.contains("agency") || normalizedKw.contains("web")) {
-            selectedWebsites = realAgencies;
-        } else if (normalizedKw.contains("coffee") || normalizedKw.contains("cafe")) {
-            selectedWebsites = realCafes;
-        } else if (normalizedKw.contains("dentist") || normalizedKw.contains("dental")) {
-            selectedWebsites = realDentists;
-        } else if (normalizedKw.contains("restaurant") || normalizedKw.contains("resturant") || normalizedKw.contains("food") || normalizedKw.contains("pizza")) {
-            selectedWebsites = realRestaurants;
-        }
-
-        // Get actual city coords for dynamic maps plotting
-        double[] center = geocodeLocation(location);
-
-        // Generate matching leads (limit to a realistic 12 to 15 leads for demo)
-        int maxLeads = Math.min(limit, 15);
-        for (int i = 0; i < maxLeads; i++) {
-            String name = generateBusinessName(keyword, i);
-            
-            String category = "Digital Agency";
-            if (normalizedKw.contains("cafe") || normalizedKw.contains("coffee")) {
-                category = "Cafe";
-            } else if (normalizedKw.contains("dentist") || normalizedKw.contains("dental")) {
-                category = "Dentist";
-            } else if (normalizedKw.contains("restaurant") || normalizedKw.contains("resturant") || normalizedKw.contains("food") || normalizedKw.contains("pizza")) {
-                category = "Restaurant";
-            } else {
-                // Capitalize first letter of keyword as the category
-                String cap = keyword.substring(0, 1).toUpperCase() + keyword.substring(1);
-                if (cap.endsWith("s") && cap.length() > 3) {
-                    cap = cap.substring(0, cap.length() - 1);
-                }
-                category = cap;
-            }
-
-            // Pick a real website for the first few, then generate a unique matching site based on name
-            String website;
-            if (i < selectedWebsites.length) {
-                website = selectedWebsites[i];
-            } else {
-                String cleanName = name.toLowerCase().replaceAll("[^a-z0-9]", "");
-                website = "https://www." + cleanName + ".com";
-            }
-
-            // Spread coordinates slightly around city center so pins spread nicely on interactive map
-            double latOffset = (i * 0.003) - 0.006;
-            double lonOffset = (i * 0.003) - 0.006;
-
-            String phone;
-            String locLower = location.toLowerCase();
-            if (locLower.contains("india")) {
-                phone = String.format("+91 %d%d%d%d%d %d%d%d%d%d", 9, 8 - (i % 2), 7 - (i % 3), (i*3)%10, (i*7)%10, i%10, i%10, i%10, i%10, i%10);
-            } else if (locLower.contains("australia") || locLower.contains("au")) {
-                phone = String.format("+61 4%d%d %d%d%d %d%d%d", i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10);
-            } else if (locLower.contains("uk") || locLower.contains("united kingdom") || locLower.contains("london")) {
-                phone = String.format("+44 7%d%d%d %d%d%d%d%d%d", i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10);
-            } else {
-                phone = String.format("+1 (%d%d%d) 555-01%d%d", 200 + i*15, i%10, i%10, i%10, i%10);
-            }
-
-            list.add(Business.builder()
-                    .searchId(searchId)
-                    .name(name)
-                    .category(category)
-                    .address(String.format("%d %s St, %s", 10 + i * 5, keyword, location))
-                    .phone(phone)
-                    .website(website)
-                    .googleRating(4.0 + ((i % 5) * 0.2))
-                    .reviewCount(15 + i * 18)
-                    .googleMapsUrl("https://maps.google.com/?cid=" + UUID.randomUUID())
-                    .latitude(center[0] + latOffset)
-                    .longitude(center[1] + lonOffset)
-                    .status("OPERATIONAL")
-                    .build());
-        }
-        return list;
-    }
-
-    private String generateBusinessName(String keyword, int index) {
-        String capitalized = keyword.substring(0, 1).toUpperCase() + keyword.substring(1);
-        if (capitalized.endsWith("s") && capitalized.length() > 3) {
-            capitalized = capitalized.substring(0, capitalized.length() - 1);
-        }
-        String[] suffixes = {"Co", "Group", "Solutions", "HQ", "Partners", "Hub", "Lab", "Clinic", "Studio", "Bistro", "Gourmet", "Kitchen", "Chamber", "Associates", "House"};
-        return String.format("%s %s %d", capitalized, suffixes[index % suffixes.length], index + 1);
-    }
 
     private List<Business> scrapeRealOpenStreetMapData(UUID searchId, String keyword, String location, int limit) {
         List<Business> list = new ArrayList<>();

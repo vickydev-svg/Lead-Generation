@@ -37,9 +37,14 @@ const SearchProgressView = ({ activeSearch, onSearchComplete, onCancelSearch }) 
     let pollInterval = null;
     let completed = false;
 
-    const handleCompletion = () => {
+    const handleCompletion = (status) => {
       if (completed) return;
       completed = true;
+      if (status === 'Failed') {
+        alert("Search failed: No real businesses found matching your criteria in this location.");
+        onCancelSearch();
+        return;
+      }
       setP1(100); setP2(100); setP3(100); setP4(100); setP5(100); setP6(100);
       setTimeout(() => onSearchComplete(), 800);
     };
@@ -54,7 +59,7 @@ const SearchProgressView = ({ activeSearch, onSearchComplete, onCancelSearch }) 
       setP5(data.progressWebsites ?? 0);
       setP6(data.progressAnalysis ?? 0);
       if (data.status === 'Completed' || data.status === 'Failed') {
-        handleCompletion();
+        handleCompletion(data.status);
       }
     };
 
