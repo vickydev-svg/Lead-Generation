@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Flame, Mail, Lock, Eye, EyeOff, User } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { apiClient } from '../apiClient';
 
 const LoginPage = ({ setPage, onLogin }) => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -32,58 +32,29 @@ const LoginPage = ({ setPage, onLogin }) => {
 
     try {
       if (isSignUp) {
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              name: name.trim()
-            }
-          }
-        });
-
-        if (signUpError) throw signUpError;
-
-        if (data.session) {
-          // If auto-confirm is enabled or already logged in
-          onLogin(data.user);
-        } else {
-          setSuccessMsg('Registration successful! Please check your email to verify your account.');
-          // Reset fields
-          setName('');
-          setEmail('');
-          setPassword('');
-        }
+        await apiClient.register(
+          name.trim(),
+          email.trim(),
+          password.trim(),
+          "LeadForge LLC"
+        );
+        setSuccessMsg('Registration successful! You can now log in.');
+        setIsSignUp(false);
+        setName('');
+        setPassword('');
       } else {
-        const { data, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-
-        if (signInError) throw signInError;
-        
+        const data = await apiClient.login(email.trim(), password.trim());
         onLogin(data.user);
       }
     } catch (err) {
-      setError(err.message || 'An error occurred. Please try again.');
+      setError(err.response?.data?.message || err.response?.data || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setError('');
-    try {
-      const { error: oAuthError } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: window.location.origin
-        }
-      });
-      if (oAuthError) throw oAuthError;
-    } catch (err) {
-      setError(err.message || 'OAuth error occurred.');
-    }
+  const handleGoogleLogin = () => {
+    alert("OAuth Google login is configured via backend Spring Security redirects in production. For testing, please use standard email login.");
   };
 
   return (

@@ -256,7 +256,7 @@ const LeadDrawer = ({ lead, onClose }) => {
               <div>
                 <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', display: 'block' }}>Business Summary</span>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginTop: '4px' }}>
-                  General & cosmetic dentistry clinic located in Manhattan. Specializes in routine checkups, implants, veneers, and pediatric dental care. Has been serving local residents for over a decade.
+                  {lead.summary || "General & cosmetic clinic located in your target area."}
                 </p>
               </div>
             </div>
@@ -423,11 +423,11 @@ const LeadDrawer = ({ lead, onClose }) => {
 
         {activeTab === 'insights' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }} className="animate-fade-in">
-            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>AI Pitch Angles</h4>
+            <h4 style={{ fontSize: '0.85rem', fontWeight: 600, margin: 0 }}>AI Prospecting Intelligence</h4>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               
-              {/* Insight 1 */}
+              {/* Target Opportunity */}
               <div style={{
                 display: 'flex',
                 gap: '12px',
@@ -438,32 +438,14 @@ const LeadDrawer = ({ lead, onClose }) => {
               }}>
                 <AlertTriangle size={18} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: '2px' }} />
                 <div>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--warning)', display: 'block' }}>Missing Facebook Pixel</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--warning)', display: 'block' }}>SEO & Conversion Opportunities</span>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: '4px' }}>
-                    The business website does not have the Facebook pixel installed. Excellent opportunity to pitch paid traffic/retargeting services.
+                    {lead.opportunity || "Identify SEO keywords, mobile styling optimizations, and HTTPS certificate validation."}
                   </p>
                 </div>
               </div>
 
-              {/* Insight 2 */}
-              <div style={{
-                display: 'flex',
-                gap: '12px',
-                padding: '12px',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'rgba(239, 68, 68, 0.05)'
-              }}>
-                <AlertTriangle size={18} style={{ color: 'var(--danger)', flexShrink: 0, marginTop: '2px' }} />
-                <div>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--danger)', display: 'block' }}>Poor Mobile Performance</span>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: '4px' }}>
-                    Mobile page speed is 64/100, which causes conversion drops. You can pitch speed optimization or a modern redesigned website template.
-                  </p>
-                </div>
-              </div>
-
-              {/* Insight 3 */}
+              {/* B2B Outreach Pitch */}
               <div style={{
                 display: 'flex',
                 gap: '12px',
@@ -474,9 +456,9 @@ const LeadDrawer = ({ lead, onClose }) => {
               }}>
                 <CheckCircle size={18} style={{ color: 'var(--success)', flexShrink: 0, marginTop: '2px' }} />
                 <div>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--success)', display: 'block' }}>High Client Value</span>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--success)', display: 'block' }}>B2B Outreach Pitch</span>
                   <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: '4px' }}>
-                    Dentists have a high average customer lifetime value ($3,000+). They are very responsive to marketing pitches that guarantee 10-15 new monthly bookings.
+                    {lead.pitch || "Hey there! I looked at your site and wanted to share 2 minor adjustments that could boost your leads..."}
                   </p>
                 </div>
               </div>

@@ -26,67 +26,54 @@ const SearchProgressView = ({ activeSearch, onSearchComplete, onCancelSearch }) 
       setElapsedSeconds(prev => prev + 1);
     }, 1000);
 
-    // 2. Simulating scraper stages
-    const progressInterval = setInterval(() => {
-      setP1(prev => {
-        if (prev >= 100) return 100;
-        const next = prev + Math.floor(Math.random() * 12) + 5;
-        return Math.min(next, 100);
-      });
+    // 2. Connect to live WebSocket progress stream
+    const cachedUser = JSON.parse(localStorage.getItem('user'));
+    const userId = cachedUser?.id;
+    if (!userId) {
+      console.warn("WebSocket cannot connect: No cached User ID found");
+      return;
+    }
 
-      setP2(prev => {
-        if (p1 < 20) return 0;
-        if (prev >= 100) return 100;
-        const next = prev + Math.floor(Math.random() * 10) + 4;
-        return Math.min(next, 100);
-      });
+    const ws = new WebSocket(`ws://localhost:8080/ws/search?userId=${userId}`);
+    
+    ws.onopen = () => {
+      console.log("WebSocket connected to live search progress");
+    };
 
-      setP3(prev => {
-        if (p2 < 20) return 0;
-        if (prev >= 100) return 100;
-        const next = prev + Math.floor(Math.random() * 8) + 3;
-        return Math.min(next, 100);
-      });
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.jobId === activeSearch.jobId) {
+          setP1(data.progressBusinesses);
+          setP2(data.progressBusinesses);
+          setP3(data.progressWebsites);
+          setP4(data.progressWebsites);
+          setP5(data.progressWebsites);
+          setP6(data.progressAnalysis);
 
-      setP4(prev => {
-        if (p3 < 20) return 0;
-        if (prev >= 100) return 100;
-        const next = prev + Math.floor(Math.random() * 8) + 2;
-        return Math.min(next, 100);
-      });
+          if (data.status === 'Completed' || data.status === 'Failed') {
+            ws.close();
+            onSearchComplete();
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse WebSocket message", err);
+      }
+    };
 
-      setP5(prev => {
-        if (p4 < 20) return 0;
-        if (prev >= 100) return 100;
-        const next = prev + Math.floor(Math.random() * 6) + 2;
-        return Math.min(next, 100);
-      });
+    ws.onerror = (err) => {
+      console.error("WebSocket connection error:", err);
+    };
 
-      setP6(prev => {
-        if (p5 < 80) return 0;
-        if (prev >= 100) return 100;
-        const next = prev + Math.floor(Math.random() * 15) + 5;
-        return Math.min(next, 100);
-      });
-
-    }, 600);
+    ws.onclose = () => {
+      console.log("WebSocket connection closed");
+    };
 
     return () => {
       clearInterval(timer);
-      clearInterval(progressInterval);
+      ws.close();
     };
-  }, [p1, p2, p3, p4, p5]);
-
-  // Complete search once AI processing hits 100%
-  useEffect(() => {
-    if (p6 >= 100) {
-      // Small timeout to let user appreciate the completed state
-      const delay = setTimeout(() => {
-        onSearchComplete();
-      }, 1000);
-      return () => clearTimeout(delay);
-    }
-  }, [p6, onSearchComplete]);
+  }, [activeSearch, onSearchComplete]);
 
   // Calculate live counts based on percentages
   const maxLeads = activeSearch.maxResults || 2500;
