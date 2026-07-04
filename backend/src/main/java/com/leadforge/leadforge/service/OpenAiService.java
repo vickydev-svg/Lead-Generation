@@ -6,23 +6,25 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.util.List;
 import java.util.Map;
 
 @Service
 @Slf4j
-public class GeminiService {
+public class OpenAiService {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
-    @Value("${app.gemini.key:}")
+    @Value("${app.openai.key:${OPENAI_API_KEY:}}")
     private String apiKey;
 
-    public GeminiService(ObjectMapper objectMapper) {
+    public OpenAiService(ObjectMapper objectMapper) {
         this.restClient = RestClient.builder().build();
         this.objectMapper = objectMapper;
     }
@@ -40,7 +42,7 @@ public class GeminiService {
                                          String instagram, String linkedin) {
         
         if (apiKey == null || apiKey.isBlank()) {
-            log.info("Gemini API key is not configured. Generating realistic fallback analysis for {}", name);
+            log.info("OpenAI API key is not configured. Generating realistic fallback analysis for {}", name);
             return generateFallbackAnalysis(name, category, website, auditScore, hasHttps, email, phone);
         }
 
@@ -70,31 +72,27 @@ public class GeminiService {
 
         try {
             Map<String, Object> requestBody = Map.of(
-                    "contents", new Object[]{
-                            Map.of("parts", new Object[]{
-                                    Map.of("text", prompt)
-                            })
-                    },
-                    "generationConfig", Map.of(
-                            "responseMimeType", "application/json"
-                    )
+                    "model", "gpt-4o-mini",
+                    "messages", List.of(
+                            Map.of("role", "user", "content", prompt)
+                    ),
+                    "response_format", Map.of("type", "json_object")
             );
 
-            log.info("Sending request to Gemini 1.5 Flash for business: {}", name);
+            log.info("Sending request to OpenAI (gpt-4o-mini) for business: {}", name);
             String responseStr = restClient.post()
-                    .uri("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey)
+                    .uri("https://api.openai.com/v1/chat/completions")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(requestBody)
                     .retrieve()
                     .body(String.class);
 
             JsonNode rootNode = objectMapper.readTree(responseStr);
-            String jsonText = rootNode.path("candidates")
+            String jsonText = rootNode.path("choices")
                     .path(0)
+                    .path("message")
                     .path("content")
-                    .path("parts")
-                    .path(0)
-                    .path("text")
                     .asText();
 
             JsonNode analysisNode = objectMapper.readTree(jsonText.trim());
@@ -105,7 +103,7 @@ public class GeminiService {
                     .build();
 
         } catch (Exception ex) {
-            log.error("Gemini API call failed for {}: {}. Using fallback analysis.", name, ex.getMessage());
+            log.error("OpenAI API call failed for {}: {}. Using fallback analysis.", name, ex.getMessage());
             return generateFallbackAnalysis(name, category, website, auditScore, hasHttps, email, phone);
         }
     }

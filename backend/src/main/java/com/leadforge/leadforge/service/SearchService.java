@@ -27,7 +27,7 @@ public class SearchService {
     private final UserRepository userRepository;
     
     private final CrawlerService crawlerService;
-    private final GeminiService geminiService;
+    private final OpenAiService openAiService;
     private final SearchProgressHandler progressHandler;
     private final ObjectMapper objectMapper;
 
@@ -155,7 +155,7 @@ public class SearchService {
                 String ig = socialOpt.map(WebsiteSocial::getInstagram).orElse("");
                 String li = socialOpt.map(WebsiteSocial::getLinkedin).orElse("");
 
-                GeminiService.AnalysisResult analysis = geminiService.analyzeBusiness(
+                OpenAiService.AnalysisResult analysis = openAiService.analyzeBusiness(
                         b.getName(), b.getCategory(), b.getWebsite(), score, hasHttps, email, phone, fb, ig, li
                 );
 
