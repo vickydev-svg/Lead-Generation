@@ -557,6 +557,13 @@ function App() {
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       
+      {/* Premium Ambient Glow Blobs */}
+      <div className="ambient-blobs-container">
+        <div className="ambient-blob blob-1" />
+        <div className="ambient-blob blob-2" />
+        <div className="ambient-blob blob-3" />
+      </div>
+
       {/* Global Particle floating balls background */}
       <canvas 
         ref={globalCanvasRef} 
@@ -594,7 +601,9 @@ function App() {
           {/* Left Sidebar */}
           <Sidebar 
             activeTab={activeTab} 
-            setActiveTab={setActiveTab} 
+            setActiveTab={setActiveTab}
+            user={user}
+            leadsCount={leads.length}
           />
 
           {/* Right Layout */}
@@ -616,14 +625,15 @@ function App() {
               {activeTab === 'dashboard' && (
                 <DashboardView 
                   stats={{
-                    totalSearches: history.length + jobs.filter(j => j.status === 'Running').length,
-                    leadsFound: leads.length + 22458,
+                    totalSearches: history.length,
+                    leadsFound: leads.length,
+                    lists: lists.length,
                     exports: exports.length,
-                    projects: projects.length
                   }}
                   recentSearches={history}
-                  runningJobs={jobs}
+                  lists={lists}
                   latestExports={exports}
+                  user={user}
                   setActiveTab={setActiveTab}
                   setDirectSearchQuery={setDirectSearchQuery}
                 />
@@ -648,14 +658,27 @@ function App() {
               )}
 
               {activeTab === 'search-results' && (
-                <SearchResultsView 
-                  leads={leads}
-                  activeSearch={activeSearch || { keyword: 'Dentists', location: 'New York, USA' }}
-                  onOpenDrawer={setSelectedLead}
-                  onSaveList={handleSaveList}
-                  onExportLeads={handleExportLeads}
-                  onDeleteLeads={handleDeleteLeads}
-                />
+                leads.length > 0 ? (
+                  <SearchResultsView 
+                    leads={leads}
+                    activeSearch={activeSearch || { keyword: '', location: '' }}
+                    onOpenDrawer={setSelectedLead}
+                    onSaveList={handleSaveList}
+                    onExportLeads={handleExportLeads}
+                    onDeleteLeads={handleDeleteLeads}
+                  />
+                ) : (
+                  <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: '16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '3rem' }}>🔍</div>
+                    <h2 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#ffffff', margin: 0 }}>No leads yet</h2>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '320px', lineHeight: 1.6 }}>
+                      Run a search to find leads. They'll appear here once your scrape is complete.
+                    </p>
+                    <button onClick={() => setActiveTab('search-leads')} className="btn btn-primary" style={{ marginTop: '8px', padding: '12px 28px' }}>
+                      Start a Search
+                    </button>
+                  </div>
+                )
               )}
 
               {activeTab === 'projects' && (
