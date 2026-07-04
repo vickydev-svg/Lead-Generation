@@ -277,6 +277,7 @@ public class SearchService {
         String[] realAgencies = {"https://www.wpengine.com", "https://www.wix.com", "https://www.hubspot.com", "https://www.shopify.com"};
         String[] realCafes = {"https://www.camposcoffee.com", "https://www.singleo.com.au"};
         String[] realDentists = {"https://www.identistry.com.au", "https://www.sydneydentists.com.au"};
+        String[] realRestaurants = {"https://www.mcdonalds.com", "https://www.dominos.co.in", "https://www.subway.com", "https://www.starbucks.in"};
         String[] fallbackSites = {"https://www.wikipedia.org", "https://news.ycombinator.com", "https://github.com", "https://about.google"};
 
         String[] selectedWebsites = fallbackSites;
@@ -286,6 +287,8 @@ public class SearchService {
             selectedWebsites = realCafes;
         } else if (normalizedKw.contains("dentist") || normalizedKw.contains("dental")) {
             selectedWebsites = realDentists;
+        } else if (normalizedKw.contains("restaurant") || normalizedKw.contains("resturant") || normalizedKw.contains("food") || normalizedKw.contains("pizza")) {
+            selectedWebsites = realRestaurants;
         }
 
         // Get actual city coords for dynamic maps plotting
@@ -294,19 +297,47 @@ public class SearchService {
         // Generate matching leads
         for (int i = 0; i < Math.min(limit, 4); i++) {
             String name = generateBusinessName(keyword, i);
-            String category = normalizedKw.contains("cafe") ? "Cafe" : normalizedKw.contains("dentist") ? "Dentist" : "Digital Agency";
+            
+            String category = "Digital Agency";
+            if (normalizedKw.contains("cafe") || normalizedKw.contains("coffee")) {
+                category = "Cafe";
+            } else if (normalizedKw.contains("dentist") || normalizedKw.contains("dental")) {
+                category = "Dentist";
+            } else if (normalizedKw.contains("restaurant") || normalizedKw.contains("resturant") || normalizedKw.contains("food") || normalizedKw.contains("pizza")) {
+                category = "Restaurant";
+            } else {
+                // Capitalize first letter of keyword as the category
+                String cap = keyword.substring(0, 1).toUpperCase() + keyword.substring(1);
+                if (cap.endsWith("s") && cap.length() > 3) {
+                    cap = cap.substring(0, cap.length() - 1);
+                }
+                category = cap;
+            }
+
             String website = selectedWebsites[i % selectedWebsites.length];
 
             // Spread coordinates slightly around city center so pins spread nicely on interactive map
             double latOffset = (i * 0.005) - 0.01;
             double lonOffset = (i * 0.005) - 0.01;
 
+            String phone;
+            String locLower = location.toLowerCase();
+            if (locLower.contains("india")) {
+                phone = String.format("+91 %d%d%d%d%d %d%d%d%d%d", 9, 8 - (i % 2), 7 - (i % 3), i, i, i, i, i, i, i);
+            } else if (locLower.contains("australia") || locLower.contains("au")) {
+                phone = String.format("+61 4%d%d %d%d%d %d%d%d", i, i, i, i, i, i, i, i);
+            } else if (locLower.contains("uk") || locLower.contains("united kingdom") || locLower.contains("london")) {
+                phone = String.format("+44 7%d%d%d %d%d%d%d%d%d", i, i, i, i, i, i, i, i, i, i);
+            } else {
+                phone = String.format("+1 (%d%d%d) 555-01%d%d", 200 + i*15, i, i, i, i);
+            }
+
             list.add(Business.builder()
                     .searchId(searchId)
                     .name(name)
                     .category(category)
                     .address(String.format("%d %s St, %s", 10 + i * 5, keyword, location))
-                    .phone(String.format("+1 %d%d%d 555 %d%d%d%d", 200 + i*15, i, i, i, i, i, i))
+                    .phone(phone)
                     .website(website)
                     .googleRating(4.0 + (i * 0.2))
                     .reviewCount(15 + i * 18)
