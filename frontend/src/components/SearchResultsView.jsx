@@ -32,17 +32,15 @@ const SearchResultsView = ({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Select/Deselect all rows
-  const handleSelectAll = (e, paginatedLeads) => {
+  // Select/Deselect all rows in a list/category
+  const handleSelectAll = (e, targetLeads) => {
+    const newSelected = new Set(selectedIds);
     if (e.target.checked) {
-      const newSelected = new Set(selectedIds);
-      paginatedLeads.forEach(lead => newSelected.add(lead.id));
-      setSelectedIds(newSelected);
+      targetLeads.forEach(lead => newSelected.add(lead.id));
     } else {
-      const newSelected = new Set(selectedIds);
-      paginatedLeads.forEach(lead => newSelected.delete(lead.id));
-      setSelectedIds(newSelected);
+      targetLeads.forEach(lead => newSelected.delete(lead.id));
     }
+    setSelectedIds(newSelected);
   };
 
   const handleSelectRow = (id) => {
@@ -87,12 +85,34 @@ const SearchResultsView = ({
     });
   }, [leads, searchTerm, filterRating, filterWebsite, filterEmail]);
 
-  // Pagination calculation
-  const totalPages = Math.ceil(filteredLeads.length / itemsPerPage) || 1;
-  const paginatedLeads = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredLeads.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredLeads, currentPage]);
+  const [expandedCategories, setExpandedCategories] = useState({});
+
+  const groupedLeads = useMemo(() => {
+    const groups = {};
+    filteredLeads.forEach(lead => {
+      const cat = lead.category || 'Uncategorized';
+      if (!groups[cat]) {
+        groups[cat] = [];
+      }
+      groups[cat].push(lead);
+    });
+    return groups;
+  }, [filteredLeads]);
+
+  // Default first category to open if none are set
+  useEffect(() => {
+    const keys = Object.keys(groupedLeads);
+    if (keys.length > 0 && Object.keys(expandedCategories).length === 0) {
+      setExpandedCategories({ [keys[0]]: true });
+    }
+  }, [groupedLeads]);
+
+  const toggleCategory = (cat) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [cat]: !prev[cat]
+    }));
+  };
 
   const [exportStatus, setExportStatus] = useState('');  // '' | 'exporting' | 'done' | 'error'
   const [saveListName, setSaveListName] = useState('');
@@ -151,8 +171,10 @@ const SearchResultsView = ({
     setSelectedIds(new Set());
   };
 
-  // Check if all rows on this page are selected
-  const isAllPageSelected = paginatedLeads.length > 0 && paginatedLeads.every(lead => selectedIds.has(lead.id));
+  // Check if all rows in a category are selected
+  const isCategoryAllSelected = (categoryLeads) => {
+    return categoryLeads.length > 0 && categoryLeads.every(lead => selectedIds.has(lead.id));
+  };
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -325,221 +347,231 @@ const SearchResultsView = ({
 
       </div>
 
-      {/* Main Table */}
-      <div className="table-container">
-        <table className="custom-table">
-          <thead>
-            <tr>
-              <th style={{ width: '40px' }}>
-                <label className="checkbox-container">
-                  <input 
-                    type="checkbox" 
-                    checked={isAllPageSelected}
-                    onChange={(e) => handleSelectAll(e, paginatedLeads)}
-                  />
-                  <span className="custom-checkbox"></span>
-                </label>
-              </th>
-              <th>Business Name</th>
-              <th>Category</th>
-              <th>Rating</th>
-              <th>Reviews</th>
-              <th>Website</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>AI Score</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedLeads.length === 0 ? (
-              <tr>
-                <td colSpan="10" style={{ textAlign: 'center', padding: '30px', color: 'var(--text-secondary)' }}>
-                  No leads found matching your criteria.
-                </td>
-              </tr>
-            ) : (
-              paginatedLeads.map((lead) => {
-                const isSelected = selectedIds.has(lead.id);
-                return (
-                  <tr key={lead.id} style={{ backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.05)' : '' }}>
-                    <td>
-                      <label className="checkbox-container">
-                        <input 
-                          type="checkbox" 
-                          checked={isSelected}
-                          onChange={() => handleSelectRow(lead.id)}
-                        />
-                        <span className="custom-checkbox"></span>
-                      </label>
-                    </td>
-                    <td style={{ fontWeight: 600 }}>
-                      <span 
-                        onClick={() => onOpenDrawer(lead)}
-                        style={{ cursor: 'pointer', hover: 'underline', color: '#ffffff' }}
-                        onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                        onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
-                      >
-                        {lead.name}
-                      </span>
-                    </td>
-                    <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{lead.category}</td>
-                    <td style={{ fontWeight: 600, color: 'var(--warning)' }}>{lead.rating} ★</td>
-                    <td>{lead.reviews}</td>
-                    
-                    {/* Website */}
-                    <td>
-                      {lead.website !== '-' ? (
-                        <a href={`https://${lead.website}`} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-hover)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
-                          <Globe size={12} />
-                          <span style={{ fontSize: '0.8rem' }}>{lead.website}</span>
-                        </a>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>-</span>
-                      )}
-                    </td>
+      {/* Grouped Accordion Tables */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {Object.entries(groupedLeads).length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
+            No leads found matching your criteria.
+          </div>
+        ) : (
+          Object.entries(groupedLeads).map(([cat, leadsList]) => {
+            const isOpen = !!expandedCategories[cat];
+            const isAllCatSelected = isCategoryAllSelected(leadsList);
+            return (
+              <div key={cat} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {/* Category Header (Accordion) */}
+                <div 
+                  onClick={() => toggleCategory(cat)}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '16px 20px',
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    color: '#ffffff',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(94, 106, 210, 0.3)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)';
+                    e.currentTarget.style.borderColor = 'var(--border-color)';
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '1.1rem' }}>📁</span>
+                    <span style={{ fontFamily: 'var(--font-heading)' }}>{cat}</span>
+                    <span className="badge badge-info" style={{ fontSize: '0.65rem', padding: '2px 8px' }}>{leadsList.length} leads</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{isOpen ? 'Collapse' : 'Expand'}</span>
+                    <span style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', display: 'inline-block' }}>▼</span>
+                  </div>
+                </div>
 
-                    {/* Email */}
-                    <td>
-                      {lead.email !== '-' ? (
-                        <a href={`mailto:${lead.email}`} style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
-                          <Mail size={12} style={{ color: 'var(--text-secondary)' }} />
-                          <span style={{ fontSize: '0.8rem' }}>{lead.email}</span>
-                        </a>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>-</span>
-                      )}
-                    </td>
+                {/* Table (shows only if open) */}
+                {isOpen && (
+                  <div className="table-container" style={{ margin: '4px 0 16px 0', animation: 'fadeIn 0.2s ease-out' }}>
+                    <table className="custom-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '40px' }}>
+                            <label className="checkbox-container">
+                              <input 
+                                type="checkbox" 
+                                checked={isAllCatSelected}
+                                onChange={(e) => handleSelectAll(e, leadsList)}
+                              />
+                              <span className="custom-checkbox"></span>
+                            </label>
+                          </th>
+                          <th>Business Name</th>
+                          <th>Rating</th>
+                          <th>Reviews</th>
+                          <th>Website</th>
+                          <th>Email</th>
+                          <th>Phone</th>
+                          <th>AI Score</th>
+                          <th style={{ textAlign: 'right' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leadsList.map((lead) => {
+                          const isSelected = selectedIds.has(lead.id);
+                          return (
+                            <tr key={lead.id} style={{ backgroundColor: isSelected ? 'rgba(37, 99, 235, 0.05)' : '' }}>
+                              <td>
+                                <label className="checkbox-container">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={isSelected}
+                                    onChange={() => handleSelectRow(lead.id)}
+                                  />
+                                  <span className="custom-checkbox"></span>
+                                </label>
+                              </td>
+                              <td style={{ fontWeight: 600 }}>
+                                <span 
+                                  onClick={() => onOpenDrawer(lead)}
+                                  style={{ cursor: 'pointer', color: '#ffffff' }}
+                                  onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                                  onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                                >
+                                  {lead.name}
+                                </span>
+                              </td>
+                              <td style={{ fontWeight: 600, color: 'var(--warning)', fontSize: '0.8rem' }}>{lead.rating} ★</td>
+                              <td style={{ fontSize: '0.8rem' }}>{lead.reviews}</td>
+                              
+                              {/* Website */}
+                              <td>
+                                {lead.website && lead.website !== '-' ? (
+                                  <a href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-hover)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                                    <Globe size={12} />
+                                    <span style={{ fontSize: '0.8rem' }}>{lead.website.replace('https://', '').replace('http://', '').replace('www.', '')}</span>
+                                  </a>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                )}
+                              </td>
 
-                    {/* Phone */}
-                    <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                      {lead.phone !== '-' ? (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <PhoneCall size={12} style={{ color: 'var(--text-muted)' }} />
-                          {lead.phone}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)' }}>-</span>
-                      )}
-                    </td>
+                              {/* Email */}
+                              <td>
+                                {lead.email && lead.email !== '-' ? (
+                                  <a href={`mailto:${lead.email}`} style={{ color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '4px', textDecoration: 'none' }}>
+                                    <Mail size={12} style={{ color: 'var(--text-secondary)' }} />
+                                    <span style={{ fontSize: '0.8rem' }}>{lead.email}</span>
+                                  </a>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                )}
+                              </td>
 
-                    {/* AI Score */}
-                    <td>
-                      <span className={`badge ${lead.aiScore >= 80 ? 'badge-success' : lead.aiScore >= 60 ? 'badge-warning' : 'badge-danger'}`}>
-                        {lead.aiScore} / 100
-                      </span>
-                    </td>
+                              {/* Phone */}
+                              <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                {lead.phone && lead.phone !== '-' ? (
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <PhoneCall size={12} style={{ color: 'var(--text-muted)' }} />
+                                    {lead.phone}
+                                  </span>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)' }}>-</span>
+                                )}
+                              </td>
 
-                    {/* Action buttons */}
-                    <td style={{ textAlign: 'right' }}>
-                      <div style={{ display: 'inline-flex', gap: '4px' }}>
-                        <button 
-                          onClick={() => onOpenDrawer(lead)} 
-                          className="btn btn-secondary btn-xs" 
-                          style={{ minWidth: 'auto', padding: '6px' }}
-                          title="View Details"
-                        >
-                          <Eye size={12} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
+                              {/* AI Score */}
+                              <td>
+                                <span className={`badge ${lead.aiScore >= 80 ? 'badge-success' : lead.aiScore >= 60 ? 'badge-warning' : 'badge-danger'}`}>
+                                  {lead.aiScore} / 100
+                                </span>
+                              </td>
+
+                              {/* Action buttons */}
+                              <td style={{ textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', gap: '4px' }}>
+                                  <button 
+                                    onClick={() => onOpenDrawer(lead)} 
+                                    className="btn btn-secondary btn-xs" 
+                                    style={{ minWidth: 'auto', padding: '6px' }}
+                                    title="View Details"
+                                  >
+                                    <Eye size={12} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Footer controls: Bulk operations only */}
+      {Object.entries(groupedLeads).length > 0 && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginTop: '10px',
+          padding: '12px 20px',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: 'rgba(255, 255, 255, 0.01)',
+          border: '1px solid var(--border-color)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+              {selectedIds.size} selected globally
+            </span>
+            
+            {selectedIds.size > 0 && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button 
+                  onClick={handleBulkAddToList} 
+                  className="btn btn-secondary btn-xs"
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Plus size={12} />
+                  <span>Add to List</span>
+                </button>
+                <button 
+                  onClick={handleBulkExport} 
+                  className="btn btn-secondary btn-xs"
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Download size={12} />
+                  <span>Export</span>
+                </button>
+                <button 
+                  onClick={handleBulkDelete} 
+                  className="btn btn-danger btn-xs"
+                  style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  <Trash2 size={12} />
+                  <span>Delete</span>
+                </button>
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Footer controls: Bulk operations & Pagination */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginTop: '10px',
-        flexWrap: 'wrap',
-        gap: '16px'
-      }}>
-        
-        {/* Selected count info & bulk buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
-            {selectedIds.size} selected
+          </div>
+          
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            Categorized view of all target prospects
           </span>
-          
-          {selectedIds.size > 0 && (
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button 
-                onClick={handleBulkAddToList} 
-                className="btn btn-secondary btn-xs"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <Plus size={12} />
-                <span>Add to List</span>
-              </button>
-              <button 
-                onClick={handleBulkExport} 
-                className="btn btn-secondary btn-xs"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <Download size={12} />
-                <span>Export</span>
-              </button>
-              <button 
-                onClick={handleBulkDelete} 
-                className="btn btn-danger btn-xs"
-                style={{ display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                <Trash2 size={12} />
-                <span>Delete</span>
-              </button>
-            </div>
-          )}
         </div>
-
-        {/* Pagination */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <button 
-            disabled={currentPage === 1}
-            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-            className="btn btn-secondary btn-xs"
-            style={{ opacity: currentPage === 1 ? 0.4 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
-          >
-            <ChevronLeft size={14} />
-          </button>
-          
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
-            <button
-              key={pg}
-              onClick={() => setCurrentPage(pg)}
-              style={{
-                width: '28px',
-                height: '28px',
-                borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--border-color)',
-                backgroundColor: currentPage === pg ? 'var(--accent-color)' : 'var(--bg-tertiary)',
-                color: '#ffffff',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all var(--transition-fast)'
-              }}
-            >
-              {pg}
-            </button>
-          ))}
-
-          <button 
-            disabled={currentPage === totalPages}
-            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-            className="btn btn-secondary btn-xs"
-            style={{ opacity: currentPage === totalPages ? 0.4 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
-          >
-            <ChevronRight size={14} />
-          </button>
-        </div>
-
-      </div>
+      )}
 
     </div>
   );
