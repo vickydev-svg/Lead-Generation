@@ -294,8 +294,9 @@ public class SearchService {
         // Get actual city coords for dynamic maps plotting
         double[] center = geocodeLocation(location);
 
-        // Generate matching leads
-        for (int i = 0; i < Math.min(limit, 4); i++) {
+        // Generate matching leads (limit to a realistic 12 to 15 leads for demo)
+        int maxLeads = Math.min(limit, 15);
+        for (int i = 0; i < maxLeads; i++) {
             String name = generateBusinessName(keyword, i);
             
             String category = "Digital Agency";
@@ -314,22 +315,29 @@ public class SearchService {
                 category = cap;
             }
 
-            String website = selectedWebsites[i % selectedWebsites.length];
+            // Pick a real website for the first few, then generate a unique matching site based on name
+            String website;
+            if (i < selectedWebsites.length) {
+                website = selectedWebsites[i];
+            } else {
+                String cleanName = name.toLowerCase().replaceAll("[^a-z0-9]", "");
+                website = "https://www." + cleanName + ".com";
+            }
 
             // Spread coordinates slightly around city center so pins spread nicely on interactive map
-            double latOffset = (i * 0.005) - 0.01;
-            double lonOffset = (i * 0.005) - 0.01;
+            double latOffset = (i * 0.003) - 0.006;
+            double lonOffset = (i * 0.003) - 0.006;
 
             String phone;
             String locLower = location.toLowerCase();
             if (locLower.contains("india")) {
-                phone = String.format("+91 %d%d%d%d%d %d%d%d%d%d", 9, 8 - (i % 2), 7 - (i % 3), i, i, i, i, i, i, i);
+                phone = String.format("+91 %d%d%d%d%d %d%d%d%d%d", 9, 8 - (i % 2), 7 - (i % 3), (i*3)%10, (i*7)%10, i%10, i%10, i%10, i%10, i%10);
             } else if (locLower.contains("australia") || locLower.contains("au")) {
-                phone = String.format("+61 4%d%d %d%d%d %d%d%d", i, i, i, i, i, i, i, i);
+                phone = String.format("+61 4%d%d %d%d%d %d%d%d", i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10);
             } else if (locLower.contains("uk") || locLower.contains("united kingdom") || locLower.contains("london")) {
-                phone = String.format("+44 7%d%d%d %d%d%d%d%d%d", i, i, i, i, i, i, i, i, i, i);
+                phone = String.format("+44 7%d%d%d %d%d%d%d%d%d", i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10);
             } else {
-                phone = String.format("+1 (%d%d%d) 555-01%d%d", 200 + i*15, i, i, i, i);
+                phone = String.format("+1 (%d%d%d) 555-01%d%d", 200 + i*15, i%10, i%10, i%10, i%10);
             }
 
             list.add(Business.builder()
@@ -339,7 +347,7 @@ public class SearchService {
                     .address(String.format("%d %s St, %s", 10 + i * 5, keyword, location))
                     .phone(phone)
                     .website(website)
-                    .googleRating(4.0 + (i * 0.2))
+                    .googleRating(4.0 + ((i % 5) * 0.2))
                     .reviewCount(15 + i * 18)
                     .googleMapsUrl("https://maps.google.com/?cid=" + UUID.randomUUID())
                     .latitude(center[0] + latOffset)
@@ -352,7 +360,10 @@ public class SearchService {
 
     private String generateBusinessName(String keyword, int index) {
         String capitalized = keyword.substring(0, 1).toUpperCase() + keyword.substring(1);
-        String[] suffixes = {"Co", "Group", "Solutions", "HQ", "Partners"};
-        return String.format("%s %s %s", capitalized, suffixes[index % suffixes.length], index + 1);
+        if (capitalized.endsWith("s") && capitalized.length() > 3) {
+            capitalized = capitalized.substring(0, capitalized.length() - 1);
+        }
+        String[] suffixes = {"Co", "Group", "Solutions", "HQ", "Partners", "Hub", "Lab", "Clinic", "Studio", "Bistro", "Gourmet", "Kitchen", "Chamber", "Associates", "House"};
+        return String.format("%s %s %d", capitalized, suffixes[index % suffixes.length], index + 1);
     }
 }
