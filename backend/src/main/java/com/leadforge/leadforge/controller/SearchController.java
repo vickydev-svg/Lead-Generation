@@ -67,19 +67,6 @@ public class SearchController {
         
         Search search = searchOpt.get();
         List<Business> all = businessRepository.findBySearchId(searchId);
-        if (all == null || all.isEmpty()) {
-            all = businessRepository.findAll();
-            List<Business> filtered = new ArrayList<>();
-            String kw = search.getKeyword().toLowerCase();
-            for (Business b : all) {
-                if (b.getCategory() != null && b.getCategory().toLowerCase().contains(kw)) {
-                    filtered.add(b);
-                }
-            }
-            if (!filtered.isEmpty()) {
-                all = filtered;
-            }
-        }
         List<Map<String, Object>> response = new ArrayList<>();
         
         for (Business b : all) {
