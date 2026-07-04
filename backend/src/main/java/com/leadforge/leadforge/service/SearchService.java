@@ -92,7 +92,7 @@ public class SearchService {
             // Phase 4.2: Asynchronous crawl for websites
             for (int i = 0; i < total; i++) {
                 Business b = savedBusinesses.get(i);
-                if (b.getWebsite() != null && !b.getWebsite().isBlank()) {
+                if (b.getWebsite() != null && !b.getWebsite().isBlank() && !b.getWebsite().equals("-")) {
                     CrawlerService.CrawlResult crawlResult = crawlerService.crawlWebsite(b.getWebsite());
                     
                     // Save WebsiteContact
@@ -276,13 +276,14 @@ public class SearchService {
     private List<Business> scrapeRealOpenStreetMapData(UUID searchId, String keyword, String location, int limit) {
         List<Business> list = new ArrayList<>();
         try {
-            String url = String.format("https://nominatim.openstreetmap.org/search?q=%s+in+%s&format=json&addressdetails=1&limit=%d",
+            // Append addressdetails=1 and extratags=1 to get full fields like phone and website
+            String url = String.format("https://nominatim.openstreetmap.org/search?q=%s+in+%s&format=json&addressdetails=1&extratags=1&limit=%d",
                     java.net.URLEncoder.encode(keyword, "UTF-8"),
                     java.net.URLEncoder.encode(location, "UTF-8"),
                     Math.min(limit, 20)
             );
 
-            log.info("Querying Nominatim for real POI leads: {}", url);
+            log.info("Querying Nominatim for real POI leads with extratags: {}", url);
             String responseBody = org.jsoup.Jsoup.connect(url)
                     .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
                     .ignoreContentType(true)
@@ -312,10 +313,6 @@ public class SearchService {
                     // Address details mapping
                     com.fasterxml.jackson.databind.JsonNode addressNode = node.get("address");
                     String address = node.get("display_name").asText();
-                    String countryCode = "in";
-                    if (addressNode != null && addressNode.has("country_code")) {
-                        countryCode = addressNode.get("country_code").asText().toLowerCase();
-                    }
 
                     // Category mapping
                     String category = "Local Business";
@@ -324,11 +321,24 @@ public class SearchService {
                         category = type.substring(0, 1).toUpperCase() + type.substring(1).replace("_", " ");
                     }
 
-                    // Generate realistic prefix phone matching countryCode
-                    String phone = generateRealPhone(countryCode, count);
+                    // Extract actual real website and phone from extratags
+                    String website = "-";
+                    String phone = "-";
 
-                    // Generate website matching business name
-                    String website = generateRealWebsite(name);
+                    com.fasterxml.jackson.databind.JsonNode extraNode = node.get("extratags");
+                    if (extraNode != null) {
+                        if (extraNode.has("website")) {
+                            website = extraNode.get("website").asText();
+                        } else if (extraNode.has("contact:website")) {
+                            website = extraNode.get("contact:website").asText();
+                        }
+
+                        if (extraNode.has("phone")) {
+                            phone = extraNode.get("phone").asText();
+                        } else if (extraNode.has("contact:phone")) {
+                            phone = extraNode.get("contact:phone").asText();
+                        }
+                    }
 
                     list.add(Business.builder()
                             .searchId(searchId)
@@ -352,32 +362,5 @@ public class SearchService {
             log.error("Failed to fetch real POI data from Nominatim: {}", e.getMessage());
         }
         return list;
-    }
-
-    private String generateRealPhone(String countryCode, int i) {
-        if ("in".equals(countryCode)) {
-            return String.format("+91 %d%d%d%d%d %d%d%d%d%d", 9, 8 - (i % 2), 7 - (i % 3), (i*3)%10, (i*7)%10, i%10, i%10, i%10, i%10, i%10);
-        } else if ("au".equals(countryCode)) {
-            return String.format("+61 4%d%d %d%d%d %d%d%d", i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10);
-        } else if ("gb".equals(countryCode) || "uk".equals(countryCode)) {
-            return String.format("+44 7%d%d%d %d%d%d%d%d%d", i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10, i%10);
-        } else {
-            return String.format("+1 (%d%d%d) 555-01%d%d", 200 + i*15, i%10, i%10, i%10, i%10);
-        }
-    }
-
-    private String generateRealWebsite(String name) {
-        String clean = name.toLowerCase()
-                .replaceAll("'", "")
-                .replaceAll("&", "and")
-                .replaceAll("[^a-z0-9]", "-")
-                .replaceAll("-+", "-");
-        if (clean.endsWith("-")) {
-            clean = clean.substring(0, clean.length() - 1);
-        }
-        if (clean.startsWith("-")) {
-            clean = clean.substring(1);
-        }
-        return "https://www." + clean + ".com";
     }
 }
